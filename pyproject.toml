@@ -1,0 +1,36 @@
+[project]
+name = "adaptive-math-step-analyser"
+version = "0.1.0"
+description = "Backend module for step-by-step mathematical solution analysis"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlalchemy",
+    "psycopg2-binary",
+    "alembic",
+    "pydantic",
+    "python-dotenv",
+    "sympy",
+    "passlib[bcrypt]",
+    "python-jose[cryptography]"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "httpx2",
+    "pytest-asyncio",
+    "black",
+    "ruff"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100

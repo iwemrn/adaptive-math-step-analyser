@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: adaptive_math_db
+    environment:
+      POSTGRES_DB: adaptive_math
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - adaptive_math_pgdata:/var/lib/postgresql/data
+
+volumes:
+  adaptive_math_pgdata:
