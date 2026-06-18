@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 
 
@@ -11,12 +11,11 @@ class ProblemCreate(BaseModel):
 
 
 class ProblemRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     topic: str
     title: str
     statement: str
     expected_answer: str | None = None
     metadata_json: dict | None = None
-
-    class Config:
-        from_attributes = True
