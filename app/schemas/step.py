@@ -15,6 +15,8 @@ class StepAnalysisRead(BaseModel):
     step_id: UUID
     step_order: int
     raw_text: str
+    normalized_before: str | None = None
+    normalized_after: str | None = None
     is_valid: bool
     soft_score: float
     operation_type: str | None = None

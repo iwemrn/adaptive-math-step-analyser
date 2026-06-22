@@ -12,7 +12,7 @@ from app.models.analysis_result import AnalysisResult
 
 from app.schemas.attempt import AttemptCreate, AttemptRead
 from app.schemas.step import StepCreate, StepAnalysisRead
-from app.services.analysis_service import analyze_step_stub
+from app.services.analysis_service import analyze_step
 
 router = APIRouter()
 
@@ -56,19 +56,20 @@ def submit_step(attempt_id: UUID, payload: StepCreate, db: Session = Depends(get
     )
     next_order = 1 if last_order is None else last_order + 1
 
-    analysis = analyze_step_stub(payload.raw_text)
+    analysis = analyze_step(payload.raw_text)
 
     step = Step(
         attempt_id=attempt.id,
         step_order=next_order,
         raw_text=payload.raw_text,
-        normalized_before=None,
-        normalized_after=payload.raw_text.strip(),
+        normalized_before=analysis["normalized_before"],
+        normalized_after=analysis["normalized_after"],
         operation_type=analysis["operation_type"],
         diagnostics_json={
             "feedback": analysis["feedback"],
             "error_probs": analysis["error_probs"],
-            "stub": True,
+            "normalized_before": analysis["normalized_before"],
+            "normalized_after": analysis["normalized_after"],
         },
     )
     db.add(step)
@@ -94,6 +95,8 @@ def submit_step(attempt_id: UUID, payload: StepCreate, db: Session = Depends(get
         "step_id": step.id,
         "step_order": step.step_order,
         "raw_text": step.raw_text,
+        "normalized_before": step.normalized_before,
+        "normalized_after": step.normalized_after,
         "is_valid": analysis_result.is_valid,
         "soft_score": analysis_result.soft_score,
         "operation_type": step.operation_type,
