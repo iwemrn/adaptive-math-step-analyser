@@ -38,15 +38,16 @@ def test_submit_step_transition_valid():
     assert data["is_valid"] is True
     assert data["soft_score"] == 0.95
     assert data["operation_type"] == "equivalent_transition"
+    assert data["diagnosis_code"] == "equivalent_transition"
     assert data["feedback"]["type"] == "confirm"
 
 
-def test_submit_step_transition_invalid():
+def test_submit_step_transition_sign_error():
     problem_response = client.post(
         "/problems",
         json={
             "topic": "linear_equations",
-            "title": "Проверка ошибочного шага",
+            "title": "Проверка ошибки знака",
             "statement": "Решите уравнение 2x + 6 = 10",
             "expected_answer": "2"
         },
@@ -71,7 +72,9 @@ def test_submit_step_transition_invalid():
 
     assert data["is_valid"] is False
     assert data["operation_type"] == "invalid_transition"
+    assert data["diagnosis_code"] == "sign_error"
     assert data["feedback"]["type"] == "explain_error"
+    assert "sign_error" in data["error_probs"]
 
 
 def test_submit_step_single_expression():
@@ -105,4 +108,5 @@ def test_submit_step_single_expression():
     assert data["normalized_before"] is None
     assert data["normalized_after"] == "x = 3"
     assert data["operation_type"] == "single_expression"
+    assert data["diagnosis_code"] == "single_expression"
     assert data["feedback"]["type"] == "hint"

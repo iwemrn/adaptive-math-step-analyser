@@ -20,5 +20,6 @@ class StepAnalysisRead(BaseModel):
     is_valid: bool
     soft_score: float
     operation_type: str | None = None
+    diagnosis_code: str | None = None
     feedback: FeedbackRead
     error_probs: dict = {}

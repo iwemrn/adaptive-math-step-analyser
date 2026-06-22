@@ -66,6 +66,7 @@ def submit_step(attempt_id: UUID, payload: StepCreate, db: Session = Depends(get
         normalized_after=analysis["normalized_after"],
         operation_type=analysis["operation_type"],
         diagnostics_json={
+            "diagnosis_code": analysis["diagnosis_code"],
             "feedback": analysis["feedback"],
             "error_probs": analysis["error_probs"],
             "normalized_before": analysis["normalized_before"],
@@ -100,6 +101,7 @@ def submit_step(attempt_id: UUID, payload: StepCreate, db: Session = Depends(get
         "is_valid": analysis_result.is_valid,
         "soft_score": analysis_result.soft_score,
         "operation_type": step.operation_type,
+        "diagnosis_code": analysis["diagnosis_code"],
         "feedback": analysis_result.feedback_json,
         "error_probs": analysis_result.error_probs_json or {},
     }
