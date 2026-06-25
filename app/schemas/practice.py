@@ -3,6 +3,13 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+class PracticeGenerateRequest(BaseModel):
+    profile_key: str | None = None
+    topic: str | None = None
+    difficulty: str | None = None
+    focus_diagnosis: str | None = None
+
+
 class NextProblemRecommendationRead(BaseModel):
     problem_id: UUID
     topic: str

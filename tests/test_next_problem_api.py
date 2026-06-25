@@ -16,7 +16,8 @@ def test_next_problem_recommendation_for_sign_error_profile():
             "expected_answer": "3",
             "metadata_json": {
                 "difficulty": "easy",
-                "focus_diagnosis": "sign_error"
+                "focus_diagnosis": "sign_error",
+                "profile_key_hint": profile_key
             }
         },
     )

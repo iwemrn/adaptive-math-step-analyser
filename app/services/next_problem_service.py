@@ -75,8 +75,39 @@ def _pick_target_difficulty(profile: StudentProfile, target_topic: str | None) -
     return "hard"
 
 
+def _difficulty_score(
+    problem_difficulty: str | None,
+    target_difficulty: str,
+    explicit: bool,
+) -> tuple[int, list[str]]:
+    reasons: list[str] = []
+
+    if not problem_difficulty:
+        return 0, reasons
+
+    if problem_difficulty == target_difficulty:
+        if explicit:
+            reasons.append(f"точно совпадает сложность '{target_difficulty}'")
+            return 60, reasons
+        reasons.append(f"подходит уровень сложности '{target_difficulty}'")
+        return 15, reasons
+
+    current_order = DIFFICULTY_ORDER.get(problem_difficulty, 2)
+    target_order = DIFFICULTY_ORDER.get(target_difficulty, 2)
+
+    if abs(current_order - target_order) == 1:
+        reasons.append("уровень сложности близок к целевому")
+        return (15 if explicit else 5), reasons
+
+    return (-10 if explicit else 0), reasons
+
+
 def _score_problem(
     problem: Problem,
+    profile_key: str | None,
+    explicit_topic: str | None,
+    explicit_diagnosis: str | None,
+    explicit_difficulty: str | None,
     target_topic: str | None,
     target_diagnosis: str | None,
     target_difficulty: str,
@@ -85,26 +116,40 @@ def _score_problem(
     reason_parts: list[str] = []
     score = 0
 
-    if target_topic and problem.topic == target_topic:
+    profile_key_hint = metadata.get("profile_key_hint")
+    if profile_key and profile_key_hint == profile_key:
+        score += 40
+        reason_parts.append(f"помечена для профиля '{profile_key}'")
+
+    if explicit_topic:
+        if problem.topic == explicit_topic:
+            score += 100
+            reason_parts.append(f"точно совпадает тема '{explicit_topic}'")
+        else:
+            score -= 25
+    elif target_topic and problem.topic == target_topic:
         score += 50
         reason_parts.append(f"совпадает тема '{target_topic}'")
 
     focus_diagnosis = metadata.get("focus_diagnosis")
-    if target_diagnosis and focus_diagnosis == target_diagnosis:
+    if explicit_diagnosis:
+        if focus_diagnosis == explicit_diagnosis:
+            score += 100
+            reason_parts.append(f"точно совпадает фокус ошибки '{explicit_diagnosis}'")
+        elif focus_diagnosis:
+            score -= 20
+    elif target_diagnosis and focus_diagnosis == target_diagnosis:
         score += 30
         reason_parts.append(f"нацелена на ошибку '{target_diagnosis}'")
 
     difficulty = metadata.get("difficulty")
-    if difficulty == target_difficulty:
-        score += 15
-        reason_parts.append(f"подходит уровень сложности '{target_difficulty}'")
-    elif difficulty:
-        current_order = DIFFICULTY_ORDER.get(difficulty, 2)
-        target_order = DIFFICULTY_ORDER.get(target_difficulty, 2)
-
-        if abs(current_order - target_order) == 1:
-            score += 5
-            reason_parts.append("уровень сложности близок к целевому")
+    diff_score, diff_reasons = _difficulty_score(
+        problem_difficulty=difficulty,
+        target_difficulty=target_difficulty,
+        explicit=explicit_difficulty is not None,
+    )
+    score += diff_score
+    reason_parts.extend(diff_reasons)
 
     if not metadata:
         score += 1
@@ -113,16 +158,26 @@ def _score_problem(
     return score, reason_parts
 
 
-def choose_next_problem(db: Session, profile_key: str) -> dict | None:
-    profile = get_or_create_profile(db, profile_key=profile_key)
+def choose_problem_with_filters(
+    db: Session,
+    profile_key: str | None = None,
+    topic: str | None = None,
+    difficulty: str | None = None,
+    focus_diagnosis: str | None = None,
+) -> dict | None:
+    profile = get_or_create_profile(db, profile_key=profile_key) if profile_key else None
+
+    inferred_diagnosis = _pick_primary_diagnosis(profile) if profile else None
+    inferred_topic = _pick_target_topic(profile, inferred_diagnosis) if profile else None
+    inferred_difficulty = _pick_target_difficulty(profile, inferred_topic) if profile else "medium"
+
+    target_diagnosis = focus_diagnosis or inferred_diagnosis
+    target_topic = topic or inferred_topic
+    target_difficulty = difficulty or inferred_difficulty
 
     problems = list(db.scalars(select(Problem)).all())
     if not problems:
         return None
-
-    target_diagnosis = _pick_primary_diagnosis(profile)
-    target_topic = _pick_target_topic(profile, target_diagnosis)
-    target_difficulty = _pick_target_difficulty(profile, target_topic)
 
     best_problem = None
     best_score = -10**9
@@ -131,6 +186,10 @@ def choose_next_problem(db: Session, profile_key: str) -> dict | None:
     for problem in problems:
         score, reasons = _score_problem(
             problem=problem,
+            profile_key=profile_key,
+            explicit_topic=topic,
+            explicit_diagnosis=focus_diagnosis,
+            explicit_difficulty=difficulty,
             target_topic=target_topic,
             target_diagnosis=target_diagnosis,
             target_difficulty=target_difficulty,
@@ -144,7 +203,7 @@ def choose_next_problem(db: Session, profile_key: str) -> dict | None:
     if best_problem is None:
         return None
 
-    reason = "Рекомендация выбрана автоматически"
+    reason = "Рекомендация выбрана автоматически."
     if best_reasons:
         reason = "Рекомендация выбрана, потому что " + ", ".join(best_reasons) + "."
 
@@ -160,3 +219,10 @@ def choose_next_problem(db: Session, profile_key: str) -> dict | None:
         "target_difficulty": target_difficulty,
         "reason": reason,
     }
+
+
+def choose_next_problem(db: Session, profile_key: str) -> dict | None:
+    return choose_problem_with_filters(
+        db=db,
+        profile_key=profile_key,
+    )
