@@ -24,3 +24,8 @@ class ProfileRead(BaseModel):
 
 class ProfileWithRecommendationsRead(ProfileRead):
     recommendations: list[RecommendationRead] = Field(default_factory=list)
+
+
+class ProfileResetRead(BaseModel):
+    profile_key: str
+    status: str

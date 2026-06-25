@@ -30,6 +30,7 @@ def generate_problem(payload: PracticeGenerateRequest, db: Session = Depends(get
         topic=payload.topic,
         difficulty=payload.difficulty,
         focus_diagnosis=payload.focus_diagnosis,
+        max_steps=payload.max_steps,
     )
     if not result:
         raise HTTPException(status_code=404, detail="No problems available for recommendation")

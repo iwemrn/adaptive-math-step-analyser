@@ -8,6 +8,7 @@ class PracticeGenerateRequest(BaseModel):
     topic: str | None = None
     difficulty: str | None = None
     focus_diagnosis: str | None = None
+    max_steps: int | None = None
 
 
 class NextProblemRecommendationRead(BaseModel):
@@ -21,4 +22,5 @@ class NextProblemRecommendationRead(BaseModel):
     based_on_diagnosis: str | None = None
     target_topic: str | None = None
     target_difficulty: str | None = None
+    target_max_steps: int | None = None
     reason: str

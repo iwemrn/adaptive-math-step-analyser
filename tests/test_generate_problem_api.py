@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -5,32 +7,42 @@ client = TestClient(app)
 
 
 def test_generate_problem_with_explicit_filters():
+    suffix = uuid4().hex[:8]
+    profile_key = f"test_student_{suffix}"
+    target_topic = f"custom_topic_alpha_{suffix}"
+    target_title = f"Целевая задача {suffix}"
+    other_topic = f"custom_topic_beta_{suffix}"
+
     target_response = client.post(
         "/problems",
         json={
-            "topic": "custom_topic_alpha",
-            "title": "Целевая задача",
+            "topic": target_topic,
+            "title": target_title,
             "statement": "Решите уравнение x + 7 = 12",
             "expected_answer": "5",
             "metadata_json": {
                 "difficulty": "easy",
-                "focus_diagnosis": "sign_error"
+                "focus_diagnosis": "sign_error",
+                "max_steps": 1,
+                "profile_key_hint": profile_key,
             }
         },
     )
     assert target_response.status_code == 201
-    target_problem_id = target_response.json()["id"]
+    target_problem = target_response.json()
+    target_problem_id = target_problem["id"]
 
     other_response = client.post(
         "/problems",
         json={
-            "topic": "custom_topic_beta",
-            "title": "Другая задача",
+            "topic": other_topic,
+            "title": f"Другая задача {suffix}",
             "statement": "Решите уравнение 3x = 9",
             "expected_answer": "3",
             "metadata_json": {
                 "difficulty": "hard",
-                "focus_diagnosis": "invalid_transform"
+                "focus_diagnosis": "invalid_transform",
+                "max_steps": 3
             }
         },
     )
@@ -39,52 +51,61 @@ def test_generate_problem_with_explicit_filters():
     response = client.post(
         "/practice/generate-problem",
         json={
-            "profile_key": "test_student",
-            "topic": "custom_topic_alpha",
+            "profile_key": profile_key,
+            "topic": target_topic,
             "difficulty": "easy",
-            "focus_diagnosis": "sign_error"
+            "focus_diagnosis": "sign_error",
+            "max_steps": 1
         },
     )
     assert response.status_code == 200
 
     data = response.json()
     assert data["problem_id"] == target_problem_id
-    assert data["topic"] == "custom_topic_alpha"
-    assert data["target_topic"] == "custom_topic_alpha"
+    assert data["topic"] == target_topic
+    assert data["title"] == target_title
+    assert data["target_topic"] == target_topic
     assert data["target_difficulty"] == "easy"
+    assert data["target_max_steps"] == 1
     assert data["based_on_diagnosis"] == "sign_error"
 
 
 def test_generate_problem_uses_profile_when_filters_missing():
-    profile_key = "generated_from_profile"
+    suffix = uuid4().hex[:8]
+    profile_key = f"generated_from_profile_{suffix}"
+    target_topic = f"linear_equations_{suffix}"
+    target_title = f"Задача для профиля {suffix}"
 
     target_response = client.post(
         "/problems",
         json={
-            "topic": "linear_equations",
-            "title": "Задача для профиля",
+            "topic": target_topic,
+            "title": target_title,
             "statement": "Решите уравнение 5x + 4 = 19",
             "expected_answer": "3",
             "metadata_json": {
                 "difficulty": "easy",
                 "focus_diagnosis": "sign_error",
-                "profile_key_hint": profile_key
+                "profile_key_hint": profile_key,
+                "max_steps": 1
             }
         },
     )
     assert target_response.status_code == 201
-    target_problem_id = target_response.json()["id"]
+    target_problem = target_response.json()
+    target_problem_id = target_problem["id"]
 
     source_problem_response = client.post(
         "/problems",
         json={
-            "topic": "linear_equations",
-            "title": "Исходная проблемная задача",
+            "topic": target_topic,
+            "title": f"Исходная проблемная задача {suffix}",
             "statement": "Решите уравнение 2x + 6 = 10",
             "expected_answer": "2",
             "metadata_json": {
                 "difficulty": "easy",
-                "focus_diagnosis": "sign_error"
+                "focus_diagnosis": "sign_error",
+                "max_steps": 2
             }
         },
     )
@@ -114,5 +135,7 @@ def test_generate_problem_uses_profile_when_filters_missing():
 
     data = response.json()
     assert data["problem_id"] == target_problem_id
+    assert data["title"] == target_title
     assert data["based_on_diagnosis"] == "sign_error"
-    assert data["target_topic"] == "linear_equations"
+    assert data["target_topic"] == target_topic
+    assert data["target_max_steps"] in [1, 2, 3]
