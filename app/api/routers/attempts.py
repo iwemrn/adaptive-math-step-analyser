@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
@@ -44,7 +44,12 @@ def get_attempt(attempt_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.post("/{attempt_id}/steps", response_model=StepAnalysisRead, status_code=201)
-def submit_step(attempt_id: UUID, payload: StepCreate, db: Session = Depends(get_db)):
+def submit_step(
+    attempt_id: UUID,
+    payload: StepCreate,
+    profile_key: str = Query(DEFAULT_PROFILE_KEY),
+    db: Session = Depends(get_db),
+):
     attempt = db.scalar(select(Attempt).where(Attempt.id == attempt_id))
     if not attempt:
         raise HTTPException(status_code=404, detail="Attempt not found")
@@ -76,6 +81,7 @@ def submit_step(attempt_id: UUID, payload: StepCreate, db: Session = Depends(get
             "error_probs": analysis["error_probs"],
             "normalized_before": analysis["normalized_before"],
             "normalized_after": analysis["normalized_after"],
+            "profile_key": profile_key,
         },
     )
     db.add(step)
@@ -99,7 +105,7 @@ def submit_step(attempt_id: UUID, payload: StepCreate, db: Session = Depends(get
         topic=problem.topic,
         is_valid=analysis["is_valid"],
         diagnosis_code=analysis["diagnosis_code"],
-        profile_key=DEFAULT_PROFILE_KEY,
+        profile_key=profile_key,
     )
 
     db.commit()
