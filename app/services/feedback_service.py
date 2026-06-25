@@ -23,6 +23,18 @@ def build_feedback(diagnosis_code: str, is_valid: bool) -> dict:
             "text": "Преобразование изменяет множество решений и не является равносильным.",
         }
 
+    if diagnosis_code == "division_by_zero":
+        return {
+            "type": "explain_error",
+            "text": "В шаге обнаружено деление на ноль. Такое преобразование недопустимо.",
+        }
+
+    if diagnosis_code == "possible_domain_loss":
+        return {
+            "type": "warning",
+            "text": "Преобразование похоже на сокращение дроби или устранение знаменателя. Возможно, потеряно ограничение области допустимых значений.",
+        }
+
     if diagnosis_code == "math_parse_error":
         return {
             "type": "explain_error",

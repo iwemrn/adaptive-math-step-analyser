@@ -11,7 +11,7 @@ def test_submit_step_transition_valid():
             "topic": "linear_equations",
             "title": "Проверка корректного шага",
             "statement": "Решите уравнение 2x + 6 = 10",
-            "expected_answer": "2"
+            "expected_answer": "2",
         },
     )
     assert problem_response.status_code == 201
@@ -49,7 +49,7 @@ def test_submit_step_transition_sign_error():
             "topic": "linear_equations",
             "title": "Проверка ошибки знака",
             "statement": "Решите уравнение 2x + 6 = 10",
-            "expected_answer": "2"
+            "expected_answer": "2",
         },
     )
     assert problem_response.status_code == 201
@@ -77,6 +77,41 @@ def test_submit_step_transition_sign_error():
     assert "sign_error" in data["error_probs"]
 
 
+def test_submit_step_domain_loss():
+    problem_response = client.post(
+        "/problems",
+        json={
+            "topic": "fractions",
+            "title": "Потеря ОДЗ",
+            "statement": "Решите уравнение (x^2 - 1)/(x - 1) = 2",
+            "expected_answer": "нет решений",
+        },
+    )
+    assert problem_response.status_code == 201
+    problem_id = problem_response.json()["id"]
+
+    attempt_response = client.post(
+        "/attempts",
+        json={"problem_id": problem_id},
+    )
+    assert attempt_response.status_code == 201
+    attempt_id = attempt_response.json()["id"]
+
+    step_response = client.post(
+        f"/attempts/{attempt_id}/steps",
+        json={"raw_text": "(x^2 - 1)/(x - 1) = 2 => x + 1 = 2"},
+    )
+
+    assert step_response.status_code == 201
+    data = step_response.json()
+
+    assert data["is_valid"] is False
+    assert data["operation_type"] == "constraint_violation"
+    assert data["diagnosis_code"] == "possible_domain_loss"
+    assert data["feedback"]["type"] == "warning"
+    assert "possible_domain_loss" in data["error_probs"]
+
+
 def test_submit_step_single_expression():
     problem_response = client.post(
         "/problems",
@@ -84,7 +119,7 @@ def test_submit_step_single_expression():
             "topic": "linear_equations",
             "title": "Одиночное выражение",
             "statement": "Решите уравнение x + 2 = 5",
-            "expected_answer": "3"
+            "expected_answer": "3",
         },
     )
     assert problem_response.status_code == 201
@@ -110,3 +145,37 @@ def test_submit_step_single_expression():
     assert data["operation_type"] == "single_expression"
     assert data["diagnosis_code"] == "single_expression"
     assert data["feedback"]["type"] == "hint"
+
+
+def test_submit_step_division_by_zero():
+    problem_response = client.post(
+        "/problems",
+        json={
+            "topic": "fractions",
+            "title": "Деление на ноль",
+            "statement": "Проверьте выражение 1/0",
+            "expected_answer": None,
+        },
+    )
+    assert problem_response.status_code == 201
+    problem_id = problem_response.json()["id"]
+
+    attempt_response = client.post(
+        "/attempts",
+        json={"problem_id": problem_id},
+    )
+    assert attempt_response.status_code == 201
+    attempt_id = attempt_response.json()["id"]
+
+    step_response = client.post(
+        f"/attempts/{attempt_id}/steps",
+        json={"raw_text": "1/0"},
+    )
+
+    assert step_response.status_code == 201
+    data = step_response.json()
+
+    assert data["is_valid"] is False
+    assert data["operation_type"] == "constraint_violation"
+    assert data["diagnosis_code"] == "division_by_zero"
+    assert data["feedback"]["type"] == "explain_error"

@@ -41,12 +41,12 @@ def parse_sympy_expr(text: str) -> Expr:
         expr = parse_expr(
             value,
             transformations=TRANSFORMATIONS,
-            evaluate=True,
+            evaluate=False,
         )
     except Exception as exc:
         raise MathParseError(f"Не удалось распознать выражение: {value}") from exc
 
-    return simplify(expr)
+    return expr
 
 
 def parse_equation(text: str) -> ParsedEquation:

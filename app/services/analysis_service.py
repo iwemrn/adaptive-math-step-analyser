@@ -1,6 +1,9 @@
 from app.math_core.parser import StepParseError, parse_step
-from app.math_core.sympy_parser import MathParseError, parse_equation, parse_sympy_expr
 from app.math_core.transitions import analyze_equation_transition
+from app.services.constraint_service import (
+    check_single_expression_constraints,
+    check_transition_constraints,
+)
 from app.services.diagnosis_service import diagnose_transition
 from app.services.feedback_service import build_feedback
 
@@ -29,6 +32,66 @@ def analyze_step(raw_text: str) -> dict:
 
     if parsed.operation_type == "parsed_transition":
         transition = analyze_equation_transition(parsed.before_text, parsed.after_text)
+
+        if transition.operation_type == "math_parse_error":
+            diagnosis_code = "math_parse_error"
+            feedback = build_feedback(diagnosis_code, is_valid=False)
+
+            return {
+                "is_valid": False,
+                "soft_score": 0.0,
+                "math_score": 0.0,
+                "logic_score": 0.0,
+                "condition_score": 0.0,
+                "goal_score": 0.0,
+                "operation_type": "math_parse_error",
+                "diagnosis_code": diagnosis_code,
+                "feedback": feedback,
+                "error_probs": {"math_parse_error": 1.0},
+                "normalized_before": parsed.before_text,
+                "normalized_after": parsed.after_text,
+            }
+
+        constraint_check = check_transition_constraints(parsed.before_text, parsed.after_text)
+
+        if constraint_check.violation_code == "division_by_zero":
+            diagnosis_code = "division_by_zero"
+            feedback = build_feedback(diagnosis_code, is_valid=False)
+
+            return {
+                "is_valid": False,
+                "soft_score": 0.0,
+                "math_score": 0.0,
+                "logic_score": 0.0,
+                "condition_score": 0.0,
+                "goal_score": 0.0,
+                "operation_type": "constraint_violation",
+                "diagnosis_code": diagnosis_code,
+                "feedback": feedback,
+                "error_probs": constraint_check.error_probs,
+                "normalized_before": parsed.before_text,
+                "normalized_after": parsed.after_text,
+            }
+
+        if constraint_check.violation_code == "possible_domain_loss":
+            diagnosis_code = "possible_domain_loss"
+            feedback = build_feedback(diagnosis_code, is_valid=False)
+
+            return {
+                "is_valid": False,
+                "soft_score": 0.35,
+                "math_score": 0.5,
+                "logic_score": 0.6,
+                "condition_score": 0.0,
+                "goal_score": 0.5,
+                "operation_type": "constraint_violation",
+                "diagnosis_code": diagnosis_code,
+                "feedback": feedback,
+                "error_probs": constraint_check.error_probs,
+                "normalized_before": parsed.before_text,
+                "normalized_after": parsed.after_text,
+            }
+
         diagnosis = diagnose_transition(
             before_text=parsed.before_text,
             after_text=parsed.after_text,
@@ -54,12 +117,9 @@ def analyze_step(raw_text: str) -> dict:
             "normalized_after": parsed.after_text,
         }
 
-    try:
-        if "=" in parsed.after_text:
-            parse_equation(parsed.after_text)
-        else:
-            parse_sympy_expr(parsed.after_text)
-    except MathParseError:
+    constraint_check = check_single_expression_constraints(parsed.after_text)
+
+    if constraint_check.violation_code == "math_parse_error":
         diagnosis_code = "math_parse_error"
         feedback = build_feedback(diagnosis_code, is_valid=False)
 
@@ -73,7 +133,26 @@ def analyze_step(raw_text: str) -> dict:
             "operation_type": "math_parse_error",
             "diagnosis_code": diagnosis_code,
             "feedback": feedback,
-            "error_probs": {"math_parse_error": 1.0},
+            "error_probs": constraint_check.error_probs,
+            "normalized_before": None,
+            "normalized_after": parsed.after_text,
+        }
+
+    if constraint_check.violation_code == "division_by_zero":
+        diagnosis_code = "division_by_zero"
+        feedback = build_feedback(diagnosis_code, is_valid=False)
+
+        return {
+            "is_valid": False,
+            "soft_score": 0.0,
+            "math_score": 0.0,
+            "logic_score": 0.0,
+            "condition_score": 0.0,
+            "goal_score": 0.0,
+            "operation_type": "constraint_violation",
+            "diagnosis_code": diagnosis_code,
+            "feedback": feedback,
+            "error_probs": constraint_check.error_probs,
             "normalized_before": None,
             "normalized_after": parsed.after_text,
         }
