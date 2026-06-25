@@ -13,6 +13,7 @@ from app.models.analysis_result import AnalysisResult
 from app.schemas.attempt import AttemptCreate, AttemptRead
 from app.schemas.step import StepCreate, StepAnalysisRead
 from app.services.analysis_service import analyze_step
+from app.services.student_model_service import DEFAULT_PROFILE_KEY, update_profile_after_step
 
 router = APIRouter()
 
@@ -51,6 +52,10 @@ def submit_step(attempt_id: UUID, payload: StepCreate, db: Session = Depends(get
     if attempt.status != "active":
         raise HTTPException(status_code=400, detail="Attempt is not active")
 
+    problem = db.scalar(select(Problem).where(Problem.id == attempt.problem_id))
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+
     last_order = db.scalar(
         select(func.max(Step.step_order)).where(Step.attempt_id == attempt.id)
     )
@@ -88,6 +93,14 @@ def submit_step(attempt_id: UUID, payload: StepCreate, db: Session = Depends(get
         feedback_json=analysis["feedback"],
     )
     db.add(analysis_result)
+
+    update_profile_after_step(
+        db=db,
+        topic=problem.topic,
+        is_valid=analysis["is_valid"],
+        diagnosis_code=analysis["diagnosis_code"],
+        profile_key=DEFAULT_PROFILE_KEY,
+    )
 
     db.commit()
     db.refresh(step)
